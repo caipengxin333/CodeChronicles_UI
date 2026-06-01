@@ -1,6 +1,6 @@
 # CodeChronicles UI
 
-Vue 3 + Vite + Element Plus 的个人技术博客前端界面。
+个人博客前端，基于 Vue 3 + Vite + Element Plus。
 
 ## 运行
 
