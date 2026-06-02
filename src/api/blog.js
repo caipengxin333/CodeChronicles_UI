@@ -16,6 +16,10 @@ export function getArticleDetail(id) {
   return http.get(`/articles/${id}`)
 }
 
+export function createArticle(data) {
+  return http.post('/articles', data)
+}
+
 export function getQuestions() {
   return http.get('/questions')
 }

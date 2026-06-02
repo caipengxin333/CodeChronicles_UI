@@ -537,6 +537,113 @@ input {
   letter-spacing: 0.04em;
 }
 
+.article-editor-dialog {
+  border: 1px solid rgba(147, 197, 253, 0.36);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(239, 246, 255, 0.86)),
+    radial-gradient(circle at 84% 4%, rgba(34, 211, 238, 0.24), transparent 20rem),
+    radial-gradient(circle at 8% 20%, rgba(139, 92, 246, 0.16), transparent 18rem);
+  box-shadow:
+    0 24px 70px rgba(15, 23, 42, 0.18),
+    0 0 42px rgba(34, 211, 238, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.article-editor-dialog .el-dialog__header,
+.article-editor-dialog .el-dialog__body,
+.article-editor-dialog .el-dialog__footer {
+  position: relative;
+  z-index: 1;
+}
+
+.article-editor-dialog .el-dialog__body {
+  padding-top: 8px;
+}
+
+.article-editor-dialog::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background-image:
+    linear-gradient(rgba(37, 99, 235, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 78% 22%, #000 0%, transparent 64%);
+}
+
+.editor-dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.editor-title-orb {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.92), transparent 20%),
+    linear-gradient(135deg, #2563eb, #06b6d4 48%, #8b5cf6);
+  box-shadow:
+    0 0 22px rgba(34, 211, 238, 0.45),
+    0 0 42px rgba(139, 92, 246, 0.22);
+}
+
+.editor-dialog-title h2 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 22px;
+}
+
+.editor-dialog-title p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.article-form {
+  display: grid;
+  gap: 4px;
+}
+
+.article-form .el-form-item__label {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 14px;
+}
+
+.cover-preview {
+  margin: -2px 0 18px;
+}
+
+.cover-preview img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border: 1px solid rgba(147, 197, 253, 0.42);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.editor-actions .el-button--primary {
+  border: 0;
+  background: linear-gradient(135deg, #2563eb, #06b6d4 48%, #8b5cf6);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+}
+
 @keyframes banner-shine {
   0%,
   62% {
@@ -692,5 +799,13 @@ input {
     bottom: 18px;
     width: 52px;
     height: 52px;
+  }
+
+  .article-editor-dialog {
+    width: calc(100vw - 28px) !important;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }

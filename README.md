@@ -29,7 +29,22 @@ VITE_API_BASE_URL=http://localhost:8080/api
 - `GET /api/tags`
 - `GET /api/articles?page=1&pageSize=10`
 - `GET /api/articles/{id}`
+- `POST /api/articles`
 - `GET /api/questions`
+
+新增文章提交字段：
+
+```json
+{
+  "title": "文章标题",
+  "summary": "文章摘要",
+  "cover": "https://example.com/cover.png",
+  "category": "项目实战",
+  "content": "文章正文"
+}
+```
+
+`id`、`publishedAt`、`updatedAt`、`views`、`likes`、`comments` 等字段由后端生成或维护。
 
 ## 项目结构
 

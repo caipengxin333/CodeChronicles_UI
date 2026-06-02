@@ -44,7 +44,9 @@
         </div>
       </div>
 
-      <el-button type="primary" round :icon="EditPen">写文章</el-button>
+      <el-button type="primary" round :icon="EditPen" @click="openArticleDialog">
+        写文章
+      </el-button>
     </section>
 
     <section class="content-grid">
@@ -148,15 +150,102 @@
     <button class="ai-assistant" type="button" aria-label="打开 AI 助手">
       <span>AI</span>
     </button>
+
+    <el-dialog
+      v-model="articleDialogVisible"
+      class="article-editor-dialog"
+      width="720px"
+      align-center
+      destroy-on-close
+      :show-close="!savingArticle"
+    >
+      <template #header>
+        <div class="editor-dialog-title">
+          <span class="editor-title-orb"></span>
+          <div>
+            <h2>发布技术文章</h2>
+            <p>标题、摘要、分类和正文会提交给后端；日期、阅读量、点赞数等由后端生成。</p>
+          </div>
+        </div>
+      </template>
+
+      <el-form
+        ref="articleFormRef"
+        class="article-form"
+        :model="articleForm"
+        :rules="articleRules"
+        label-position="top"
+      >
+        <el-form-item label="标题" prop="title">
+          <el-input
+            v-model="articleForm.title"
+            maxlength="160"
+            placeholder="例如：Spring Boot + Vue 博客系统接口设计"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item label="摘要" prop="summary">
+          <el-input
+            v-model="articleForm.summary"
+            maxlength="512"
+            placeholder="用一两句话说明这篇文章解决什么问题"
+            show-word-limit
+            type="textarea"
+            :rows="3"
+          />
+        </el-form-item>
+
+        <div class="form-grid">
+          <el-form-item label="分类" prop="category">
+            <el-input
+              v-model="articleForm.category"
+              maxlength="64"
+              placeholder="项目实战 / 后端实践 / 前端工程"
+            />
+          </el-form-item>
+
+          <el-form-item label="封面图片 URL" prop="cover">
+            <el-input
+              v-model="articleForm.cover"
+              maxlength="512"
+              placeholder="https://example.com/cover.png"
+            />
+          </el-form-item>
+        </div>
+
+        <div v-if="articleForm.cover" class="cover-preview">
+          <img :src="articleForm.cover" alt="文章封面预览" />
+        </div>
+
+        <el-form-item label="正文内容" prop="content">
+          <el-input
+            v-model="articleForm.content"
+            placeholder="输入文章正文，后续可扩展 Markdown 编辑器"
+            type="textarea"
+            :rows="8"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <div class="editor-actions">
+          <el-button :disabled="savingArticle" @click="closeArticleDialog">取消</el-button>
+          <el-button type="primary" :loading="savingArticle" @click="submitArticle">
+            保存发布
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </main>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { EditPen, Search } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import { getArticles, getProfile, getQuestions, getTags } from '../api/blog'
+import { createArticle, getArticles, getProfile, getQuestions, getTags } from '../api/blog'
 
 const router = useRouter()
 
@@ -246,6 +335,37 @@ const sortBy = ref('最新')
 const sortOptions = ['最新', '热门', '评论']
 const articleLoading = ref(false)
 const shellStyle = ref({ '--pointer-x': '72%', '--pointer-y': '18%' })
+const articleDialogVisible = ref(false)
+const savingArticle = ref(false)
+const articleFormRef = ref(null)
+
+const articleForm = reactive({
+  title: '',
+  summary: '',
+  cover: '',
+  category: '',
+  content: ''
+})
+
+const articleRules = {
+  title: [
+    { required: true, message: '请填写文章标题', trigger: 'blur' },
+    { max: 160, message: '标题不能超过 160 个字符', trigger: 'blur' }
+  ],
+  summary: [
+    { required: true, message: '请填写文章摘要', trigger: 'blur' },
+    { max: 512, message: '摘要不能超过 512 个字符', trigger: 'blur' }
+  ],
+  category: [
+    { required: true, message: '请填写文章分类', trigger: 'blur' },
+    { max: 64, message: '分类不能超过 64 个字符', trigger: 'blur' }
+  ],
+  cover: [
+    { max: 512, message: '封面地址不能超过 512 个字符', trigger: 'blur' },
+    { validator: validateOptionalUrl, trigger: 'blur' }
+  ],
+  content: [{ required: true, message: '请填写文章正文', trigger: 'blur' }]
+}
 
 const codeColumns = [
   { text: 'const blog = await AI.compose()', left: '8%', delay: '-1s', duration: '12s' },
@@ -285,6 +405,75 @@ async function selectTag(tag) {
 
 function openArticle(id) {
   router.push({ name: 'article-detail', params: { id } })
+}
+
+function openArticleDialog() {
+  articleDialogVisible.value = true
+}
+
+function closeArticleDialog() {
+  if (savingArticle.value) return
+  articleDialogVisible.value = false
+  resetArticleForm()
+}
+
+async function submitArticle() {
+  if (!articleFormRef.value) return
+
+  const valid = await articleFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  savingArticle.value = true
+
+  try {
+    await createArticle({
+      title: articleForm.title.trim(),
+      summary: articleForm.summary.trim(),
+      cover: articleForm.cover.trim() || null,
+      category: articleForm.category.trim(),
+      content: articleForm.content.trim()
+    })
+
+    ElMessage.success('文章发布成功')
+    articleDialogVisible.value = false
+    resetArticleForm()
+    await loadArticles()
+  } catch (error) {
+    ElMessage.error(error.message || '文章保存失败，请检查后端接口')
+  } finally {
+    savingArticle.value = false
+  }
+}
+
+function resetArticleForm() {
+  Object.assign(articleForm, {
+    title: '',
+    summary: '',
+    cover: '',
+    category: '',
+    content: ''
+  })
+
+  nextTick(() => articleFormRef.value?.clearValidate())
+}
+
+function validateOptionalUrl(_rule, value, callback) {
+  if (!value) {
+    callback()
+    return
+  }
+
+  try {
+    const url = new URL(value)
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      callback()
+      return
+    }
+  } catch {
+    // Fall through to validation error.
+  }
+
+  callback(new Error('请填写有效的 http/https 图片地址'))
 }
 
 async function loadArticles() {
