@@ -30,7 +30,87 @@ VITE_API_BASE_URL=http://localhost:8080/api
 - `GET /api/articles?page=1&pageSize=10`
 - `GET /api/articles/{id}`
 - `POST /api/articles`
+- `POST /api/articles/drafts`
+- `PUT /api/articles/{id}`
+- `DELETE /api/articles/{id}`
+- `POST /api/articles/{id}/submit`
+- `GET /api/my/articles?page=1&pageSize=10`
+- `GET /api/admin/articles?page=1&pageSize=10`
+- `POST /api/admin/articles/{id}/review`
 - `GET /api/questions`
+- `GET /api/captcha`
+- `POST /api/login`
+- `POST /api/register`
+- `GET /api/me`
+- `POST /api/logout`
+
+登录提交字段：
+
+```json
+{
+  "phone": "13800138000",
+  "password": "Aa123456",
+  "captchaKey": "31b61b45-51f7-4938-a32c-4ea4ed8e9b42",
+  "captcha": "abcd"
+}
+```
+
+注册页面调用 `POST /api/register`，提交用户与 profile 初始化信息：
+
+```json
+{
+  "phone": "13800138000",
+  "password": "Aa123456",
+  "nickname": "蔡鹏鑫",
+  "avatar": "https://example.com/avatar.png",
+  "bio": "专注 Java 后端和 AI 应用开发",
+  "role": "Java 后端开发",
+  "location": "北京",
+  "skills": ["Java", "Spring Boot", "MySQL"],
+  "links": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/caipengxin333"
+    }
+  ]
+}
+```
+
+注册成功后，前端会刷新页面并跳转到登录页，由用户使用新账号登录。
+
+登录后首页初始化会调用 `GET /api/me` 获取当前登录用户信息，请求头由 Axios 拦截器自动添加：
+
+```http
+Authorization: Bearer <token>
+```
+
+成功响应示例：
+
+```json
+{
+  "id": 1,
+  "phone": "13800138000",
+  "nickname": "蔡鹏鑫",
+  "name": "蔡鹏鑫",
+  "avatar": "https://example.com/avatar.png",
+  "role": "Java 后端开发",
+  "bio": "专注 Java 后端和 AI 应用开发",
+  "location": "北京",
+  "followers": 0,
+  "articleCount": 12,
+  "tagCount": 8,
+  "questionCount": 3,
+  "skills": ["Java", "Spring Boot", "MySQL"],
+  "links": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/caipengxin333"
+    }
+  ]
+}
+```
+
+如果接口返回 HTTP 401 或响应体 `code === 401`，前端会清理本地 token 并跳转登录页。
 
 新增文章提交字段：
 

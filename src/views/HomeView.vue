@@ -2,6 +2,10 @@
   <main class="blog-shell tech-shell" :style="shellStyle" @pointermove="updatePointer">
     <div class="cursor-aura" aria-hidden="true"></div>
 
+    <button class="logout-button" type="button" @click="confirmLogout">
+      退出
+    </button>
+
     <section class="profile-banner">
       <div class="neural-grid" aria-hidden="true"></div>
       <div class="code-rain" aria-hidden="true">
@@ -27,26 +31,76 @@
       </div>
 
       <div class="profile-card">
-        <div class="avatar-orbit">
-          <el-avatar :size="76" :src="profile.avatar" />
-        </div>
-        <div class="profile-meta">
-          <div class="profile-row">
-            <h1>{{ profile.name }}</h1>
-            <el-tag round type="success">{{ profile.role }}</el-tag>
+        <div class="profile-main">
+          <div class="avatar-orbit">
+            <el-avatar :size="92" :src="profile.avatar" />
           </div>
-          <p>{{ profile.bio }}</p>
-          <div class="profile-stats">
-            <span>{{ profile.location }}</span>
-            <span>{{ profile.followers }} 关注者</span>
-            <span>{{ profile.articles }} 篇文章</span>
+          <div class="profile-meta">
+            <div class="profile-kicker">Current Profile</div>
+            <div class="profile-row">
+              <h1>{{ profile.name }}</h1>
+              <el-tag round type="success">{{ profile.role }}</el-tag>
+            </div>
+            <p>{{ profile.bio }}</p>
+            <div class="profile-tags-row">
+              <div v-if="profile.skills.length" class="profile-inline-group">
+                <span class="profile-inline-label">技能栈</span>
+                <div class="profile-skills">
+                  <el-tag v-for="skill in profile.skills" :key="skill" round type="primary">
+                    {{ skill }}
+                  </el-tag>
+                </div>
+              </div>
+              <div v-if="profile.links.length" class="profile-inline-group">
+                <span class="profile-inline-label">链接</span>
+                <div class="profile-links">
+                  <a
+                    v-for="link in profile.links"
+                    :key="`${link.label}-${link.url}`"
+                    :href="link.url"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {{ link.label }}
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div class="profile-stats">
+              <span v-if="profile.location" class="stat-chip">
+                <strong>{{ profile.location }}</strong>
+                <small>所在地</small>
+              </span>
+              <span class="stat-chip">
+                <strong>{{ profile.followers }}</strong>
+                <small>关注者</small>
+              </span>
+              <span class="stat-chip">
+                <strong>{{ profile.articleCount }}</strong>
+                <small>文章</small>
+              </span>
+              <span class="stat-chip">
+                <strong>{{ profile.tagCount }}</strong>
+                <small>标签</small>
+              </span>
+              <span class="stat-chip">
+                <strong>{{ profile.questionCount }}</strong>
+                <small>问答</small>
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      <el-button type="primary" round :icon="EditPen" @click="openArticleDialog">
-        写文章
-      </el-button>
+      <div class="profile-actions">
+        <span class="profile-action-label">Ready to publish</span>
+        <el-button round plain @click="router.push({ name: 'article-manage' })">
+          文章管理
+        </el-button>
+        <el-button type="primary" round :icon="EditPen" @click="openArticleDialog">
+          写文章
+        </el-button>
+      </div>
     </section>
 
     <section class="content-grid">
@@ -242,10 +296,11 @@
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Search } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
-import { createArticle, getArticles, getProfile, getQuestions, getTags } from '../api/blog'
+import { getCurrentUser, logout } from '../api/auth'
+import { createArticle, getArticles, getQuestions, getTags } from '../api/blog'
 
 const router = useRouter()
 
@@ -256,7 +311,11 @@ const defaultProfile = {
   avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=300&q=80',
   location: 'Shanghai',
   followers: 1280,
-  articles: 64
+  articleCount: 64,
+  tagCount: 6,
+  questionCount: 2,
+  skills: ['Vue', 'Spring Boot', 'MySQL'],
+  links: [{ label: 'GitHub', url: 'https://github.com' }]
 }
 
 const profile = ref(defaultProfile)
@@ -411,6 +470,35 @@ function openArticleDialog() {
   articleDialogVisible.value = true
 }
 
+async function confirmLogout() {
+  try {
+    await ElMessageBox.confirm('确定要退出当前登录吗？', '退出登录', {
+      confirmButtonText: '是',
+      cancelButtonText: '否',
+      type: 'warning',
+      customClass: 'logout-confirm'
+    })
+
+    await logout()
+    ElMessage.success('已退出登录')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.warning(error.message || '退出接口异常，已清理本地登录状态')
+    } else {
+      return
+    }
+  }
+
+  clearAuthState()
+  await router.replace({ name: 'login' })
+}
+
+function clearAuthState() {
+  localStorage.removeItem('codechronicles_token')
+  localStorage.removeItem('codechronicles_user')
+  localStorage.removeItem('userInfo')
+}
+
 function closeArticleDialog() {
   if (savingArticle.value) return
   articleDialogVisible.value = false
@@ -508,14 +596,14 @@ function updatePointer(event) {
 
 onMounted(async () => {
   try {
-    const [profileData, tagData, questionData] = await Promise.all([
-      getProfile(),
+    const [userData, tagData, questionData] = await Promise.all([
+      getCurrentUser(),
       getTags(),
       getQuestions()
     ])
 
-    profile.value = normalizeProfile(profileData)
-    tags.value = [{ id: null, name: '全部', count: profile.value.articles }, ...normalizeTags(tagData)]
+    profile.value = normalizeProfile(userData)
+    tags.value = [{ id: null, name: '全部', count: profile.value.articleCount }, ...normalizeTags(tagData)]
     questions.value = normalizeQuestions(questionData)
   } catch (error) {
     console.info('Using local mock data until the Spring Boot API is ready.', error)
@@ -527,14 +615,38 @@ onMounted(async () => {
 function normalizeProfile(data = {}) {
   return {
     ...defaultProfile,
+    id: data.id,
+    phone: data.phone || '',
     name: data.name || data.nickname || data.account || defaultProfile.name,
+    nickname: data.nickname || data.name || defaultProfile.name,
     role: data.role || data.title || defaultProfile.role,
     bio: data.bio || data.description || defaultProfile.bio,
     avatar: data.avatar || data.avatarUrl || defaultProfile.avatar,
     location: data.location || data.city || defaultProfile.location,
     followers: data.followers ?? data.followerCount ?? defaultProfile.followers,
-    articles: data.articles ?? data.articleCount ?? defaultProfile.articles
+    articleCount: data.articleCount ?? data.articles ?? defaultProfile.articleCount,
+    tagCount: data.tagCount ?? data.tagsCount ?? defaultProfile.tagCount,
+    questionCount: data.questionCount ?? data.questionsCount ?? defaultProfile.questionCount,
+    skills: normalizeProfileSkills(data.skills),
+    links: normalizeProfileLinks(data.links)
   }
+}
+
+function normalizeProfileSkills(skills = defaultProfile.skills) {
+  return Array.isArray(skills)
+    ? skills.map((skill) => String(skill).trim()).filter(Boolean)
+    : defaultProfile.skills
+}
+
+function normalizeProfileLinks(links = defaultProfile.links) {
+  if (!Array.isArray(links)) return defaultProfile.links
+
+  return links
+    .map((link) => ({
+      label: String(link.label || '').trim(),
+      url: String(link.url || '').trim()
+    }))
+    .filter((link) => link.label && /^https?:\/\//i.test(link.url))
 }
 
 function normalizeTags(data = []) {
