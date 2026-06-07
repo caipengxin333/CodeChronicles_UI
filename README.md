@@ -15,13 +15,53 @@ npm run dev
 
 ## 后端接口
 
-前端默认请求 `http://localhost:8080/api`，适合本地 Spring Boot 开发。后端文档中已允许 `http://localhost:5173` 和 `http://127.0.0.1:5173` 跨域访问。
+前端按环境访问后端：
+
+- 本地开发：Vite 将 `/api` 代理到 `http://localhost:8080`
+- 生产环境：直接请求 `http://39.107.229.170:8080/api`
 
 可复制 `.env.example` 为 `.env` 并调整：
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8080/api
+VITE_API_BASE_URL=http://39.107.229.170:8080/api
 ```
+
+## 生产部署
+
+构建生产文件：
+
+```bash
+npm run build
+```
+
+将生成的 `dist` 目录部署到服务器：
+
+```text
+/var/www/codechronicles/dist
+```
+
+项目提供了前端静态资源 Nginx 配置示例：
+
+```text
+deploy/nginx.conf
+```
+
+配置中的服务器 IP 为：
+
+```text
+39.107.229.170
+```
+
+Spring Boot 服务需要监听服务器的 `8080` 端口，并允许前端页面来源进行跨域访问。
+
+前端使用 Hash 路由，生产页面地址示例：
+
+```text
+http://39.107.229.170:8081/#/login
+http://39.107.229.170:8081/#/articles/1
+```
+
+`#` 后面的路由只由浏览器端 Vue Router 处理，不会向静态服务器请求 `/login` 或 `/articles/1`。
 
 当前预留接口：
 

@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const http = axios.create({
   baseURL: API_BASE_URL,
@@ -78,14 +78,14 @@ export function handleAuthExpired() {
   authExpiredHandling = true
   ElMessage.warning('登录已过期，请重新登录')
 
-  const currentPath = `${window.location.pathname}${window.location.search}`
+  const currentPath = window.location.hash.slice(1) || '/'
   const redirect =
     currentPath && currentPath !== '/login' && currentPath !== '/register'
       ? `?redirect=${encodeURIComponent(currentPath)}`
       : ''
 
   setTimeout(() => {
-    window.location.href = `/login${redirect}`
+    window.location.replace(`/#/login${redirect}`)
   }, 300)
 }
 
