@@ -6,7 +6,7 @@ const routes = [
     path: '/',
     name: 'home',
     component: HomeView,
-    meta: { title: '首页', requiresAuth: true }
+    meta: { title: '首页', public: true }
   },
   {
     path: '/articles/manage',
@@ -18,7 +18,7 @@ const routes = [
     path: '/articles/:id',
     name: 'article-detail',
     component: () => import('../views/ArticleDetailView.vue'),
-    meta: { title: '文章详情', requiresAuth: true }
+    meta: { title: '文章详情', public: true }
   },
   {
     path: '/login',

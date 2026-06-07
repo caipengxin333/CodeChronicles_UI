@@ -24,6 +24,22 @@ export function getArticleDetail(id) {
   return http.get(`/articles/${id}`)
 }
 
+export function likeArticle(id) {
+  return http.post(`/articles/${id}/likes`)
+}
+
+export function unlikeArticle(id) {
+  return http.delete(`/articles/${id}/likes`)
+}
+
+export function getArticleComments(id, params = {}) {
+  return http.get(`/articles/${id}/comments`, { params })
+}
+
+export function createArticleComment(id, data) {
+  return http.post(`/articles/${id}/comments`, data)
+}
+
 export function createArticle(data) {
   return http.post('/articles', data)
 }

@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
+  baseURL: API_BASE_URL,
   timeout: 10000,
   withCredentials: true
 })
@@ -66,7 +68,7 @@ http.interceptors.response.use(
   }
 )
 
-function handleAuthExpired() {
+export function handleAuthExpired() {
   localStorage.removeItem('codechronicles_token')
   localStorage.removeItem('codechronicles_user')
   localStorage.removeItem('userInfo')

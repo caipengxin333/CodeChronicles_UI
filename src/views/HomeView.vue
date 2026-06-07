@@ -105,20 +105,22 @@
 
     <section class="content-grid">
       <aside class="left-panel">
-        <div class="panel-title">技术标签</div>
-        <el-scrollbar height="calc(100vh - 230px)">
-          <button
-            v-for="tag in tags"
-            :key="tag.id ?? tag.name"
-            class="tag-item"
-            :class="{ active: selectedTagId === tag.id }"
-            type="button"
-            @click="selectTag(tag)"
-          >
-            <span>{{ tag.name }}</span>
-            <el-badge :value="tag.count" type="info" />
-          </button>
-        </el-scrollbar>
+        <div class="side-panel-sticky">
+          <div class="panel-title">技术标签</div>
+          <el-scrollbar height="calc(100vh - 150px)">
+            <button
+              v-for="tag in tags"
+              :key="tag.id ?? tag.name"
+              class="tag-item"
+              :class="{ active: selectedTagId === tag.id }"
+              type="button"
+              @click="selectTag(tag)"
+            >
+              <span>{{ tag.name }}</span>
+              <el-badge :value="tag.count" type="info" />
+            </button>
+          </el-scrollbar>
+        </div>
       </aside>
 
       <section v-loading="articleLoading" class="center-panel">
@@ -174,41 +176,55 @@
             </router-link>
           </div>
         </article>
+
+        <div v-if="articleTotal > 0" class="article-pagination-panel">
+          <span>共 {{ articleTotal }} 篇文章</span>
+          <el-pagination
+            background
+            layout="sizes, prev, pager, next, jumper"
+            :current-page="articlePage"
+            :page-size="articlePageSize"
+            :page-sizes="[5, 10, 20, 30]"
+            :total="articleTotal"
+            @current-change="changeArticlePage"
+            @size-change="changeArticlePageSize"
+          />
+        </div>
       </section>
 
       <aside class="right-panel">
-        <section class="qa-box">
-          <div class="panel-title">问答精选</div>
-          <div v-for="question in questions" :key="question.id" class="question-item">
-            <h3>{{ question.title }}</h3>
-            <p>{{ question.answer }}</p>
-          </div>
-        </section>
+        <div class="side-panel-sticky right-panel-sticky">
+          <section class="qa-box">
+            <div class="panel-title">问答精选</div>
+            <div v-for="question in questions" :key="question.id" class="question-item">
+              <h3>{{ question.title }}</h3>
+              <p>{{ question.answer }}</p>
+            </div>
+          </section>
 
-        <section class="qa-box">
-          <div class="panel-title">近期计划</div>
-          <el-timeline>
-            <el-timeline-item
-              v-for="item in roadmap"
-              :key="item.title"
-              :timestamp="item.time"
-              placement="top"
-            >
-              {{ item.title }}
-            </el-timeline-item>
-          </el-timeline>
-        </section>
+          <section class="qa-box">
+            <div class="panel-title">近期计划</div>
+            <el-timeline>
+              <el-timeline-item
+                v-for="item in roadmap"
+                :key="item.title"
+                :timestamp="item.time"
+                placement="top"
+              >
+                {{ item.title }}
+              </el-timeline-item>
+            </el-timeline>
+          </section>
+        </div>
       </aside>
     </section>
 
-    <button class="ai-assistant" type="button" aria-label="打开 AI 助手">
-      <span>AI</span>
-    </button>
+    <AiChatAssistant />
 
     <el-dialog
       v-model="articleDialogVisible"
       class="article-editor-dialog"
-      width="720px"
+      width="760px"
       align-center
       destroy-on-close
       :show-close="!savingArticle"
@@ -217,8 +233,8 @@
         <div class="editor-dialog-title">
           <span class="editor-title-orb"></span>
           <div>
-            <h2>发布技术文章</h2>
-            <p>标题、摘要、分类和正文会提交给后端；日期、阅读量、点赞数等由后端生成。</p>
+            <h2>写文章</h2>
+            <p>提交后文章会进入待审核状态。</p>
           </div>
         </div>
       </template>
@@ -231,19 +247,13 @@
         label-position="top"
       >
         <el-form-item label="标题" prop="title">
-          <el-input
-            v-model="articleForm.title"
-            maxlength="160"
-            placeholder="例如：Spring Boot + Vue 博客系统接口设计"
-            show-word-limit
-          />
+          <el-input v-model="articleForm.title" maxlength="160" show-word-limit />
         </el-form-item>
 
         <el-form-item label="摘要" prop="summary">
           <el-input
             v-model="articleForm.summary"
             maxlength="512"
-            placeholder="用一两句话说明这篇文章解决什么问题"
             show-word-limit
             type="textarea"
             :rows="3"
@@ -252,33 +262,23 @@
 
         <div class="form-grid">
           <el-form-item label="分类" prop="category">
-            <el-input
-              v-model="articleForm.category"
-              maxlength="64"
-              placeholder="项目实战 / 后端实践 / 前端工程"
-            />
+            <el-input v-model="articleForm.category" maxlength="64" />
           </el-form-item>
 
           <el-form-item label="封面图片 URL" prop="cover">
-            <el-input
-              v-model="articleForm.cover"
-              maxlength="512"
-              placeholder="https://example.com/cover.png"
-            />
+            <el-input v-model="articleForm.cover" maxlength="512" />
           </el-form-item>
         </div>
 
-        <div v-if="articleForm.cover" class="cover-preview">
-          <img :src="articleForm.cover" alt="文章封面预览" />
-        </div>
+        <el-form-item label="标签名称" prop="tagNames">
+          <el-input
+            v-model="articleForm.tagNames"
+            placeholder="多个标签用逗号分隔，如 Spring Boot, MyBatis；不填写则由 AI 自动解析生成标签"
+          />
+        </el-form-item>
 
         <el-form-item label="正文内容" prop="content">
-          <el-input
-            v-model="articleForm.content"
-            placeholder="输入文章正文，后续可扩展 Markdown 编辑器"
-            type="textarea"
-            :rows="8"
-          />
+          <el-input v-model="articleForm.content" type="textarea" :rows="9" />
         </el-form-item>
       </el-form>
 
@@ -286,7 +286,7 @@
         <div class="editor-actions">
           <el-button :disabled="savingArticle" @click="closeArticleDialog">取消</el-button>
           <el-button type="primary" :loading="savingArticle" @click="submitArticle">
-            保存发布
+            提交审核
           </el-button>
         </div>
       </template>
@@ -298,10 +298,12 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Search } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getCurrentUser, logout } from '../api/auth'
 import { createArticle, getArticles, getQuestions, getTags } from '../api/blog'
+import AiChatAssistant from '../components/AiChatAssistant.vue'
 
+const route = useRoute()
 const router = useRouter()
 
 const defaultProfile = {
@@ -310,10 +312,11 @@ const defaultProfile = {
   bio: '记录 Spring Boot、Vue、工程实践与日常踩坑，把复杂问题写清楚。',
   avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=300&q=80',
   location: 'Shanghai',
-  followers: 1280,
-  articleCount: 64,
-  tagCount: 6,
-  questionCount: 2,
+  followers: 0,
+  articleCount: 0,
+  publishedArticleCount: 0,
+  tagCount: 0,
+  questionCount: 0,
   skills: ['Vue', 'Spring Boot', 'MySQL'],
   links: [{ label: 'GitHub', url: 'https://github.com' }]
 }
@@ -393,6 +396,9 @@ const keyword = ref('')
 const sortBy = ref('最新')
 const sortOptions = ['最新', '热门', '评论']
 const articleLoading = ref(false)
+const articlePage = ref(1)
+const articlePageSize = ref(10)
+const articleTotal = ref(articles.value.length)
 const shellStyle = ref({ '--pointer-x': '72%', '--pointer-y': '18%' })
 const articleDialogVisible = ref(false)
 const savingArticle = ref(false)
@@ -403,7 +409,8 @@ const articleForm = reactive({
   summary: '',
   cover: '',
   category: '',
-  content: ''
+  content: '',
+  tagNames: ''
 })
 
 const articleRules = {
@@ -418,10 +425,6 @@ const articleRules = {
   category: [
     { required: true, message: '请填写文章分类', trigger: 'blur' },
     { max: 64, message: '分类不能超过 64 个字符', trigger: 'blur' }
-  ],
-  cover: [
-    { max: 512, message: '封面地址不能超过 512 个字符', trigger: 'blur' },
-    { validator: validateOptionalUrl, trigger: 'blur' }
   ],
   content: [{ required: true, message: '请填写文章正文', trigger: 'blur' }]
 }
@@ -459,7 +462,28 @@ const filteredArticles = computed(() => {
 
 async function selectTag(tag) {
   selectedTagId.value = tag.id ?? null
+  articlePage.value = 1
   await loadArticles()
+}
+
+async function changeArticlePage(page) {
+  articlePage.value = page
+  await loadArticles()
+  scrollToArticleList()
+}
+
+async function changeArticlePageSize(pageSize) {
+  articlePageSize.value = pageSize
+  articlePage.value = 1
+  await loadArticles()
+  scrollToArticleList()
+}
+
+function scrollToArticleList() {
+  document.querySelector('.center-panel')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  })
 }
 
 function openArticle(id) {
@@ -467,6 +491,15 @@ function openArticle(id) {
 }
 
 function openArticleDialog() {
+  if (!localStorage.getItem('codechronicles_token')) {
+    router.push({
+      name: 'login',
+      query: { redirect: '/?writeArticle=1' }
+    })
+    return
+  }
+
+  resetArticleForm()
   articleDialogVisible.value = true
 }
 
@@ -514,22 +547,29 @@ async function submitArticle() {
   savingArticle.value = true
 
   try {
-    await createArticle({
-      title: articleForm.title.trim(),
-      summary: articleForm.summary.trim(),
-      cover: articleForm.cover.trim() || null,
-      category: articleForm.category.trim(),
-      content: articleForm.content.trim()
-    })
-
-    ElMessage.success('文章发布成功')
+    await createArticle(buildArticlePayload())
+    ElMessage.success('文章已提交审核')
     articleDialogVisible.value = false
     resetArticleForm()
-    await loadArticles()
+    await router.push({ name: 'article-manage' })
   } catch (error) {
-    ElMessage.error(error.message || '文章保存失败，请检查后端接口')
+    ElMessage.error(error.message || '文章保存失败')
   } finally {
     savingArticle.value = false
+  }
+}
+
+function buildArticlePayload() {
+  return {
+    title: articleForm.title.trim(),
+    summary: articleForm.summary.trim(),
+    cover: articleForm.cover.trim() || null,
+    category: articleForm.category.trim(),
+    content: articleForm.content.trim(),
+    tagNames: articleForm.tagNames
+      .split(/[,，]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean)
   }
 }
 
@@ -539,29 +579,11 @@ function resetArticleForm() {
     summary: '',
     cover: '',
     category: '',
-    content: ''
+    content: '',
+    tagNames: ''
   })
 
   nextTick(() => articleFormRef.value?.clearValidate())
-}
-
-function validateOptionalUrl(_rule, value, callback) {
-  if (!value) {
-    callback()
-    return
-  }
-
-  try {
-    const url = new URL(value)
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
-      callback()
-      return
-    }
-  } catch {
-    // Fall through to validation error.
-  }
-
-  callback(new Error('请填写有效的 http/https 图片地址'))
 }
 
 async function loadArticles() {
@@ -569,17 +591,19 @@ async function loadArticles() {
 
   try {
     const articleData = await getArticles({
-      page: 1,
-      pageSize: 10,
+      page: articlePage.value,
+      pageSize: articlePageSize.value,
       ...(selectedTagId.value ? { tagId: selectedTagId.value } : {})
     })
     const normalizedArticles = normalizeArticlePage(articleData)
 
     articles.value = normalizedArticles.list
+    articleTotal.value = normalizedArticles.total
     tags.value = tags.value.map((tag) =>
       tag.id === null ? { ...tag, count: normalizedArticles.total } : tag
     )
   } catch (error) {
+    articleTotal.value = articles.value.length
     ElMessage.warning('文章接口暂不可用，已展示本地占位数据')
     console.info('Using local article mock data until the Spring Boot API is ready.', error)
   } finally {
@@ -595,21 +619,48 @@ function updatePointer(event) {
 }
 
 onMounted(async () => {
-  try {
-    const [userData, tagData, questionData] = await Promise.all([
-      getCurrentUser(),
-      getTags(),
-      getQuestions()
-    ])
+  const token = localStorage.getItem('codechronicles_token')
+  const requests = await Promise.allSettled([
+    token ? getCurrentUser() : Promise.resolve(null),
+    getTags(),
+    getQuestions()
+  ])
 
-    profile.value = normalizeProfile(userData)
-    tags.value = [{ id: null, name: '全部', count: profile.value.articleCount }, ...normalizeTags(tagData)]
-    questions.value = normalizeQuestions(questionData)
-  } catch (error) {
-    console.info('Using local mock data until the Spring Boot API is ready.', error)
+  const [profileResult, tagResult, questionResult] = requests
+
+  if (profileResult.status === 'fulfilled' && profileResult.value) {
+    profile.value = normalizeProfile(profileResult.value)
+  } else {
+    profile.value = normalizeProfile()
+    if (profileResult.status === 'rejected') {
+      console.info('Current user profile request failed; numeric statistics use 0.', profileResult.reason)
+    }
+  }
+
+  if (tagResult.status === 'fulfilled') {
+    tags.value = [
+      { id: null, name: '全部', count: profile.value.articleCount },
+      ...normalizeTags(tagResult.value)
+    ]
+  } else {
+    tags.value = tags.value.map((tag) =>
+      tag.id === null ? { ...tag, count: profile.value.articleCount } : tag
+    )
+    console.info('Using local tag data until the tag API is ready.', tagResult.reason)
+  }
+
+  if (questionResult.status === 'fulfilled') {
+    questions.value = normalizeQuestions(questionResult.value)
+  } else {
+    console.info('Using local question data until the question API is ready.', questionResult.reason)
   }
 
   await loadArticles()
+
+  if (route.query.writeArticle === '1' && token) {
+    openArticleDialog()
+    await router.replace({ name: 'home' })
+  }
 })
 
 function normalizeProfile(data = {}) {
@@ -623,13 +674,19 @@ function normalizeProfile(data = {}) {
     bio: data.bio || data.description || defaultProfile.bio,
     avatar: data.avatar || data.avatarUrl || defaultProfile.avatar,
     location: data.location || data.city || defaultProfile.location,
-    followers: data.followers ?? data.followerCount ?? defaultProfile.followers,
-    articleCount: data.articleCount ?? data.articles ?? defaultProfile.articleCount,
-    tagCount: data.tagCount ?? data.tagsCount ?? defaultProfile.tagCount,
-    questionCount: data.questionCount ?? data.questionsCount ?? defaultProfile.questionCount,
+    followers: normalizeStatistic(data.followers ?? data.followerCount),
+    articleCount: normalizeStatistic(data.articleCount ?? data.articles),
+    publishedArticleCount: normalizeStatistic(data.publishedArticleCount),
+    tagCount: normalizeStatistic(data.tagCount ?? data.tagsCount),
+    questionCount: normalizeStatistic(data.questionCount ?? data.questionsCount),
     skills: normalizeProfileSkills(data.skills),
     links: normalizeProfileLinks(data.links)
   }
+}
+
+function normalizeStatistic(value) {
+  const statistic = Number(value)
+  return Number.isFinite(statistic) && statistic >= 0 ? statistic : 0
 }
 
 function normalizeProfileSkills(skills = defaultProfile.skills) {
