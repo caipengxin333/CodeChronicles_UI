@@ -1,5 +1,8 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import HomeView from '../views/HomeView.vue'
+import { getAuthToken, isVisitor } from '../auth/session'
+import { resolveRouteAccess, VISITOR_FORBIDDEN_MESSAGE } from '../auth/permissions'
 
 const routes = [
   {
@@ -12,7 +15,7 @@ const routes = [
     path: '/articles/manage',
     name: 'article-manage',
     component: () => import('../views/ArticleManageView.vue'),
-    meta: { title: '文章管理', requiresAuth: true }
+    meta: { title: '文章管理', requiresAuth: true, denyVisitor: true }
   },
   {
     path: '/articles/:id',
@@ -43,24 +46,18 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const token = localStorage.getItem('codechronicles_token')
+  const decision = resolveRouteAccess(to, {
+    token: getAuthToken(),
+    isVisitor: isVisitor.value
+  })
 
-  if (to.meta.public) {
-    if (token && (to.name === 'login' || to.name === 'register')) {
-      return { name: 'home' }
-    }
-
-    return true
+  if (decision?.visitorForbidden) {
+    ElMessage.warning(VISITOR_FORBIDDEN_MESSAGE)
+    const { visitorForbidden, ...redirect } = decision
+    return redirect
   }
 
-  if (!token) {
-    return {
-      name: 'login',
-      query: to.fullPath === '/' ? {} : { redirect: to.fullPath }
-    }
-  }
-
-  return true
+  return decision
 })
 
 router.afterEach((to) => {

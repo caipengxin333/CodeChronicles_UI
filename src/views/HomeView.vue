@@ -6,6 +6,10 @@
       退出
     </button>
 
+    <el-tag v-if="isVisitor" class="visitor-mode-badge" round type="warning">
+      游客模式
+    </el-tag>
+
     <section class="profile-banner">
       <div class="neural-grid" aria-hidden="true"></div>
       <div class="code-rain" aria-hidden="true">
@@ -92,7 +96,7 @@
         </div>
       </div>
 
-      <div class="profile-actions">
+      <div v-if="!isVisitor" class="profile-actions">
         <span class="profile-action-label">Ready to publish</span>
         <el-button round plain @click="router.push({ name: 'article-manage' })">
           文章管理
@@ -100,6 +104,14 @@
         <el-button type="primary" round :icon="EditPen" @click="openArticleDialog">
           写文章
         </el-button>
+      </div>
+      <div v-else class="profile-actions visitor-profile-actions">
+        <el-alert
+          title="游客模式仅支持文章浏览和 AI 对话"
+          type="info"
+          show-icon
+          :closable="false"
+        />
       </div>
     </section>
 
@@ -302,6 +314,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { getCurrentUser, logout } from '../api/auth'
 import { createArticle, getArticles, getQuestions, getTags } from '../api/blog'
 import AiChatAssistant from '../components/AiChatAssistant.vue'
+import {
+  clearAuthSession,
+  getAuthToken,
+  isAuthenticated,
+  isVisitor
+} from '../auth/session'
+import { VISITOR_ACTION_MESSAGE } from '../auth/permissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -491,11 +510,16 @@ function openArticle(id) {
 }
 
 function openArticleDialog() {
-  if (!localStorage.getItem('codechronicles_token')) {
+  if (!isAuthenticated.value) {
     router.push({
       name: 'login',
       query: { redirect: '/?writeArticle=1' }
     })
+    return
+  }
+
+  if (isVisitor.value) {
+    ElMessage.info(VISITOR_ACTION_MESSAGE)
     return
   }
 
@@ -527,9 +551,7 @@ async function confirmLogout() {
 }
 
 function clearAuthState() {
-  localStorage.removeItem('codechronicles_token')
-  localStorage.removeItem('codechronicles_user')
-  localStorage.removeItem('userInfo')
+  clearAuthSession()
 }
 
 function closeArticleDialog() {
@@ -539,6 +561,11 @@ function closeArticleDialog() {
 }
 
 async function submitArticle() {
+  if (isVisitor.value) {
+    ElMessage.info(VISITOR_ACTION_MESSAGE)
+    return
+  }
+
   if (!articleFormRef.value) return
 
   const valid = await articleFormRef.value.validate().catch(() => false)
@@ -553,7 +580,7 @@ async function submitArticle() {
     resetArticleForm()
     await router.push({ name: 'article-manage' })
   } catch (error) {
-    ElMessage.error(error.message || '文章保存失败')
+    if (!error.notified) ElMessage.error(error.message || '文章保存失败')
   } finally {
     savingArticle.value = false
   }
@@ -619,7 +646,7 @@ function updatePointer(event) {
 }
 
 onMounted(async () => {
-  const token = localStorage.getItem('codechronicles_token')
+  const token = getAuthToken()
   const requests = await Promise.allSettled([
     token ? getCurrentUser() : Promise.resolve(null),
     getTags(),
@@ -657,7 +684,7 @@ onMounted(async () => {
 
   await loadArticles()
 
-  if (route.query.writeArticle === '1' && token) {
+  if (route.query.writeArticle === '1' && token && !isVisitor.value) {
     openArticleDialog()
     await router.replace({ name: 'home' })
   }

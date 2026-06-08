@@ -242,11 +242,12 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, EditPen } from '@element-plus/icons-vue'
-import { getCurrentUser } from '../api/auth'
 import AiChatAssistant from '../components/AiChatAssistant.vue'
+import { isAdminAccount, isVisitor } from '../auth/session'
+import { VISITOR_ACTION_MESSAGE } from '../auth/permissions'
 import {
   createArticle,
   deleteArticle,
@@ -284,26 +285,12 @@ const articleDialogVisible = ref(false)
 const savingArticle = ref(false)
 const editingArticleId = ref(null)
 const articleFormRef = ref(null)
-const currentUser = ref(null)
 const reviewDialogVisible = ref(false)
 const reviewSaving = ref(false)
 const rejectReason = ref('')
 const shellStyle = ref({ '--pointer-x': '72%', '--pointer-y': '18%' })
 
-const isAdmin = computed(() => {
-  const roleText = String(currentUser.value?.userRole || currentUser.value?.role || '').trim()
-  const normalizedRole = roleText.toUpperCase()
-  const account = String(currentUser.value?.account || '').toLowerCase()
-  const phone = String(currentUser.value?.phone || '')
-
-  return (
-    normalizedRole === 'ADMIN' ||
-    normalizedRole.includes('ADMIN') ||
-    roleText.includes('管理员') ||
-    account === 'admin' ||
-    phone === '19999999999'
-  )
-})
+const isAdmin = isAdminAccount
 
 const articleForm = reactive({
   title: '',
@@ -331,7 +318,6 @@ const articleRules = {
 }
 
 onMounted(async () => {
-  await loadCurrentUser()
   await loadArticles()
 })
 
@@ -374,15 +360,6 @@ async function loadArticles() {
   }
 }
 
-async function loadCurrentUser() {
-  try {
-    currentUser.value = await getCurrentUser()
-  } catch (error) {
-    currentUser.value = null
-    console.info('Failed to load current user before article management mode detection.', error)
-  }
-}
-
 async function selectArticle(article) {
   selectedArticle.value = article
   await loadArticleDetail(article)
@@ -405,12 +382,14 @@ async function loadArticleDetail(article) {
 }
 
 function openCreateDialog() {
+  if (!ensureManagePermission()) return
   editingArticleId.value = null
   resetArticleForm()
   articleDialogVisible.value = true
 }
 
 function openEditDialog() {
+  if (!ensureManagePermission()) return
   if (!selectedArticle.value) return
 
   editingArticleId.value = selectedArticle.value.id
@@ -427,6 +406,7 @@ function openEditDialog() {
 }
 
 function openReviewDialog() {
+  if (!ensureManagePermission()) return
   if (!selectedArticle.value) return
 
   rejectReason.value = selectedArticle.value.rejectReason || ''
@@ -434,6 +414,7 @@ function openReviewDialog() {
 }
 
 async function submitArticle() {
+  if (!ensureManagePermission()) return
   if (!articleFormRef.value) return
 
   const valid = await articleFormRef.value.validate().catch(() => false)
@@ -455,13 +436,14 @@ async function submitArticle() {
     articleDialogVisible.value = false
     await loadArticles()
   } catch (error) {
-    ElMessage.error(error.message || '文章保存失败')
+    if (!error.notified) ElMessage.error(error.message || '文章保存失败')
   } finally {
     savingArticle.value = false
   }
 }
 
 async function confirmDelete() {
+  if (!ensureManagePermission()) return
   if (!selectedArticle.value) return
 
   try {
@@ -480,12 +462,13 @@ async function confirmDelete() {
     await loadArticles()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
-      ElMessage.error(error.message || '删除失败')
+      if (!error.notified) ElMessage.error(error.message || '删除失败')
     }
   }
 }
 
 async function submitReview(approved) {
+  if (!ensureManagePermission()) return
   if (!selectedArticle.value) return
 
   const reason = rejectReason.value.trim()
@@ -508,7 +491,7 @@ async function submitReview(approved) {
     rejectReason.value = ''
     await loadArticles()
   } catch (error) {
-    ElMessage.error(error.message || '审核提交失败')
+    if (!error.notified) ElMessage.error(error.message || '审核提交失败')
   } finally {
     reviewSaving.value = false
   }
@@ -526,6 +509,12 @@ function buildArticlePayload() {
       .map((tag) => tag.trim())
       .filter(Boolean)
   }
+}
+
+function ensureManagePermission() {
+  if (!isVisitor.value) return true
+  ElMessage.info(VISITOR_ACTION_MESSAGE)
+  return false
 }
 
 function resetArticleForm() {

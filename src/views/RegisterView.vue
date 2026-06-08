@@ -254,7 +254,7 @@ async function submitRegister() {
     await register(buildRegisterPayload())
 
     ElMessage.success('注册成功，请登录')
-    redirectToLogin()
+    await redirectToLogin()
   } catch (error) {
     ElMessage.error(error.message || '注册失败，请检查输入信息')
   } finally {
@@ -281,11 +281,13 @@ function buildRegisterPayload() {
   }
 }
 
-function redirectToLogin() {
+async function redirectToLogin() {
   const redirect = route.query.redirect
-  const query = typeof redirect === 'string' && redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''
 
-  window.location.href = `/login${query}`
+  await router.replace({
+    name: 'login',
+    query: typeof redirect === 'string' && redirect ? { redirect } : {}
+  })
 }
 
 function goLogin() {

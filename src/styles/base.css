@@ -101,6 +101,14 @@ input {
     0 0 30px rgba(34, 211, 238, 0.22);
 }
 
+.visitor-mode-badge {
+  position: fixed;
+  right: 24px;
+  top: 24px;
+  z-index: 30;
+  box-shadow: 0 10px 24px rgba(245, 158, 11, 0.16);
+}
+
 .profile-banner {
   position: relative;
   isolation: isolate;
@@ -442,6 +450,16 @@ input {
   gap: 10px;
   justify-items: end;
   padding: 18px;
+}
+
+.visitor-profile-actions {
+  width: min(100%, 320px);
+  justify-items: stretch;
+}
+
+.visitor-profile-actions .el-alert {
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: rgba(239, 246, 255, 0.82);
 }
 
 .profile-action-label {
@@ -983,6 +1001,10 @@ input {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 10px 30px rgba(31, 41, 55, 0.06);
   backdrop-filter: blur(14px);
+}
+
+.visitor-permission-alert {
+  margin-bottom: 18px;
 }
 
 .comments-heading,
@@ -1649,19 +1671,32 @@ input {
 
 .login-actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: center;
   margin-top: 4px;
 }
 
 .login-button {
+  grid-column: 1 / -1;
   width: 100%;
   border: 0;
   background: linear-gradient(135deg, #2563eb, #06b6d4 48%, #8b5cf6);
   box-shadow:
     0 14px 28px rgba(37, 99, 235, 0.24),
     0 0 28px rgba(34, 211, 238, 0.2);
+}
+
+.visitor-login-button {
+  border-color: rgba(14, 165, 233, 0.34);
+  color: #0369a1;
+  background: rgba(240, 249, 255, 0.86);
+}
+
+.visitor-login-button:hover {
+  border-color: rgba(14, 165, 233, 0.68);
+  color: #075985;
+  background: rgba(224, 242, 254, 0.94);
 }
 
 .register-button {

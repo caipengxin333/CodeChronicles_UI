@@ -71,6 +71,7 @@ import { nextTick, onBeforeUnmount, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { getChatHistory, streamChatMessage } from '../api/chat'
+import { isAuthenticated } from '../auth/session'
 
 const route = useRoute()
 const router = useRouter()
@@ -84,7 +85,7 @@ const messageListRef = ref(null)
 let activeController = null
 
 async function openAssistant() {
-  if (!localStorage.getItem('codechronicles_token')) {
+  if (!isAuthenticated.value) {
     await router.push({
       name: 'login',
       query: { redirect: route.fullPath }
@@ -117,8 +118,8 @@ async function sendMessage() {
 
   draft.value = ''
   messages.value.push({ role: 'USER', content })
-  const assistantMessage = { role: 'ASSISTANT', content: '' }
-  messages.value.push(assistantMessage)
+  messages.value.push({ role: 'ASSISTANT', content: '' })
+  const assistantMessageIndex = messages.value.length - 1
   sending.value = true
   activeController = new AbortController()
   await scrollToBottom()
@@ -127,15 +128,17 @@ async function sendMessage() {
     await streamChatMessage(
       content,
       (chunk) => {
-        assistantMessage.content += chunk
+        messages.value[assistantMessageIndex].content += chunk
         scrollToBottom()
       },
       activeController.signal
     )
   } catch (error) {
     if (error.name !== 'AbortError' && error.code !== 401) {
-      if (!assistantMessage.content) messages.value.pop()
-      ElMessage.error(error.message || 'AI 回复失败，请稍后重试')
+      if (!messages.value[assistantMessageIndex]?.content) {
+        messages.value.splice(assistantMessageIndex, 1)
+      }
+      if (!error.notified) ElMessage.error(error.message || 'AI 回复失败，请稍后重试')
     }
   } finally {
     sending.value = false

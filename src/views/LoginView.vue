@@ -68,15 +68,34 @@
         </el-form-item>
 
         <div class="login-actions">
-          <el-button class="login-button" type="primary" :loading="loginLoading" @click="submitLogin">
+          <el-button
+            class="login-button"
+            type="primary"
+            :loading="loginLoading"
+            :disabled="visitorLoginLoading"
+            @click="submitLogin"
+          >
             登录
           </el-button>
-          <el-button class="register-button" :disabled="loginLoading" @click="goRegister">
+          <el-button
+            class="visitor-login-button"
+            type="primary"
+            plain
+            :loading="visitorLoginLoading"
+            :disabled="loginLoading"
+            @click="handleVisitorLogin"
+          >
+            游客登录
+          </el-button>
+          <el-button class="register-button" :disabled="authLoading" @click="goRegister">
             注册账号
           </el-button>
         </div>
       </el-form>
 
+      <p class="login-hint">
+        游客模式无需验证码，可浏览文章、查看个人信息并使用 AI 对话。
+      </p>
       <p class="login-hint">
         已预留请求载荷：<code>phone</code>、<code>password</code>、<code>captchaKey</code>、<code>captcha</code>
       </p>
@@ -85,20 +104,23 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Hide, Lock, PictureRounded, User, View } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getCaptcha, login } from '../api/auth'
+import { getCaptcha, login, loginAsVisitor } from '../api/auth'
+import { saveAuthSession } from '../auth/session'
 
 const route = useRoute()
 const router = useRouter()
 const loginFormRef = ref(null)
 const loginLoading = ref(false)
+const visitorLoginLoading = ref(false)
 const passwordVisible = ref(false)
 const captchaImage = ref('')
 const captchaKey = ref('')
 const shellStyle = ref({ '--pointer-x': '78%', '--pointer-y': '18%' })
+const authLoading = computed(() => loginLoading.value || visitorLoginLoading.value)
 
 const loginForm = reactive({
   phone: '',
@@ -150,6 +172,7 @@ async function loadCaptcha() {
 }
 
 async function submitLogin() {
+  if (authLoading.value) return
   if (!loginFormRef.value) return
 
   const valid = await loginFormRef.value.validate().catch(() => false)
@@ -171,25 +194,54 @@ async function submitLogin() {
       captcha: loginForm.captcha
     })
 
-    const token = resolveToken(result)
-
-    if (token) {
-      localStorage.setItem('codechronicles_token', token)
-    }
+    saveLoginResult(result)
 
     ElMessage.success('登录成功')
     await router.replace(getRedirectPath())
   } catch (error) {
-    ElMessage.error(error.message || '登录失败，请检查手机号、密码或验证码')
+    if (!error.notified) ElMessage.error(error.message || '登录失败，请检查手机号、密码或验证码')
     await loadCaptcha()
   } finally {
     loginLoading.value = false
   }
 }
 
+async function handleVisitorLogin() {
+  if (authLoading.value) return
+
+  visitorLoginLoading.value = true
+
+  try {
+    const result = await loginAsVisitor()
+    saveLoginResult(result)
+    ElMessage.success('已进入游客模式')
+    await router.replace('/')
+  } catch (error) {
+    if (!error.notified) ElMessage.error(error.message || '游客登录失败，请稍后重试')
+  } finally {
+    visitorLoginLoading.value = false
+  }
+}
+
+function saveLoginResult(result) {
+  const token = resolveToken(result)
+  const role = resolveAccountRole(result)
+
+  if (!token) {
+    throw new Error('登录响应中缺少 Token')
+  }
+
+  saveAuthSession(token, role)
+}
+
 function resolveToken(result) {
   if (typeof result === 'string') return result
   return result?.token || result?.accessToken || result?.data?.token || ''
+}
+
+function resolveAccountRole(result) {
+  if (!result || typeof result === 'string') return ''
+  return result.role || result.accountRole || result.data?.role || ''
 }
 
 function getRedirectPath() {

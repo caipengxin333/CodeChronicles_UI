@@ -39,12 +39,13 @@
             class="article-like-button"
             :class="{ liked: article.liked }"
             :loading="likeLoading"
-            :disabled="likeCoolingDown"
+            :disabled="likeCoolingDown || isVisitor"
             round
             @click="toggleLike"
           >
             {{ article.liked ? '取消点赞' : '点赞文章' }} · {{ article.likes }}
           </el-button>
+          <span v-if="isVisitor" class="interaction-tip">{{ VISITOR_ACTION_MESSAGE }}</span>
           <span v-if="likeCoolingDown" class="interaction-tip">请稍后再操作</span>
         </div>
       </template>
@@ -59,6 +60,15 @@
         <span>{{ article.comments }} 条互动</span>
       </div>
 
+      <el-alert
+        v-if="isVisitor"
+        class="visitor-permission-alert"
+        title="游客模式仅支持文章浏览和 AI 对话"
+        type="info"
+        show-icon
+        :closable="false"
+      />
+
       <div class="comment-composer">
         <el-input
           v-model="commentContent"
@@ -66,13 +76,16 @@
           :rows="4"
           maxlength="1000"
           show-word-limit
-          :placeholder="isLoggedIn ? '写下你的想法…' : '登录后参与评论'"
-          :disabled="!isLoggedIn"
+          :placeholder="commentPlaceholder"
+          :disabled="!isLoggedIn || isVisitor"
         />
         <div class="composer-actions">
           <span>{{ commentSubmitTip }}</span>
           <el-button v-if="!isLoggedIn" type="primary" plain @click="goToLogin">
             登录后评论
+          </el-button>
+          <el-button v-else-if="isVisitor" type="info" plain disabled>
+            游客不可评论
           </el-button>
           <el-button
             v-else
@@ -103,7 +116,9 @@
                 <time>{{ formatCommentTime(comment.createdAt) }}</time>
               </div>
               <p>{{ comment.content }}</p>
-              <el-button link type="primary" @click="openReply(comment, comment)">回复</el-button>
+              <el-button v-if="!isVisitor" link type="primary" @click="openReply(comment, comment)">
+                回复
+              </el-button>
             </div>
           </div>
 
@@ -123,7 +138,9 @@
                   </span>
                   {{ reply.content }}
                 </p>
-                <el-button link type="primary" @click="openReply(comment, reply)">回复</el-button>
+                <el-button v-if="!isVisitor" link type="primary" @click="openReply(comment, reply)">
+                  回复
+                </el-button>
               </div>
             </div>
           </div>
@@ -178,6 +195,8 @@ import {
   likeArticle,
   unlikeArticle
 } from '../api/blog'
+import { isAuthenticated, isVisitor } from '../auth/session'
+import { VISITOR_ACTION_MESSAGE } from '../auth/permissions'
 
 const route = useRoute()
 const router = useRouter()
@@ -200,9 +219,14 @@ const replyContent = ref('')
 let likeCooldownTimer
 let commentCooldownTimer
 
-const isLoggedIn = computed(() => Boolean(localStorage.getItem('codechronicles_token')))
+const isLoggedIn = isAuthenticated
+const commentPlaceholder = computed(() => {
+  if (isVisitor.value) return '游客模式不可发表评论'
+  return isLoggedIn.value ? '写下你的想法…' : '登录后参与评论'
+})
 const commentSubmitTip = computed(() => {
   if (!isLoggedIn.value) return '文章与评论可公开阅读，互动需要登录'
+  if (isVisitor.value) return VISITOR_ACTION_MESSAGE
   if (commentCoolingDown.value) return '评论已提交，请等待 10 秒后再次操作'
   return '请友善交流，评论最多 1000 字'
 })
@@ -264,6 +288,7 @@ async function loadComments() {
 }
 
 async function toggleLike() {
+  if (!ensureInteractivePermission()) return
   if (!ensureLoggedIn()) return
   if (likeLoading.value || likeCoolingDown.value) return
 
@@ -287,7 +312,7 @@ async function toggleLike() {
     } else if (error.message?.includes('尚未点赞')) {
       article.value.liked = false
     }
-    ElMessage.warning(error.message || '点赞操作失败，请稍后重试')
+    if (!error.notified) ElMessage.warning(error.message || '点赞操作失败，请稍后重试')
   } finally {
     likeLoading.value = false
   }
@@ -305,6 +330,7 @@ async function submitReply() {
 }
 
 async function submitCommentRequest(content, parentCommentId, onSuccess) {
+  if (!ensureInteractivePermission()) return
   if (!ensureLoggedIn()) return
   if (commentSubmitting.value || commentCoolingDown.value) return
 
@@ -328,13 +354,14 @@ async function submitCommentRequest(content, parentCommentId, onSuccess) {
     await loadComments()
     ElMessage.success(parentCommentId ? '回复成功' : '评论发表成功')
   } catch (error) {
-    ElMessage.warning(error.message || '评论提交失败，请稍后重试')
+    if (!error.notified) ElMessage.warning(error.message || '评论提交失败，请稍后重试')
   } finally {
     commentSubmitting.value = false
   }
 }
 
 function openReply(rootComment, targetComment) {
+  if (!ensureInteractivePermission()) return
   if (!ensureLoggedIn()) return
   replyingRootId.value = rootComment.id
   replyTarget.value = targetComment
@@ -358,6 +385,12 @@ function ensureLoggedIn() {
   if (isLoggedIn.value) return true
   ElMessage.info('请先登录后再进行互动')
   goToLogin()
+  return false
+}
+
+function ensureInteractivePermission() {
+  if (!isVisitor.value) return true
+  ElMessage.info(VISITOR_ACTION_MESSAGE)
   return false
 }
 

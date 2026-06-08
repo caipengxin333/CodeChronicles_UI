@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { clearAuthSession, getAuthToken } from '../auth/session'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
@@ -12,7 +13,7 @@ const http = axios.create({
 let authExpiredHandling = false
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('codechronicles_token')
+  const token = getAuthToken()
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
@@ -39,6 +40,18 @@ http.interceptors.response.use(
       })
     }
 
+    if (body?.code === 403) {
+      const message = body.msg || body.message || '游客账号仅支持文章浏览和 AI 对话'
+      handleForbidden(message)
+
+      return Promise.reject({
+        code: 403,
+        message,
+        response,
+        notified: true
+      })
+    }
+
     if (typeof body?.code === 'number' && body.code !== 200) {
       return Promise.reject({
         code: body.code,
@@ -60,18 +73,21 @@ http.interceptors.response.use(
       error.message ||
       '网络异常，请稍后重试'
 
+    if (error.response?.status === 403) {
+      handleForbidden(message)
+    }
+
     return Promise.reject({
       ...error,
       code: error.response?.status,
-      message
+      message,
+      notified: error.response?.status === 403
     })
   }
 )
 
 export function handleAuthExpired() {
-  localStorage.removeItem('codechronicles_token')
-  localStorage.removeItem('codechronicles_user')
-  localStorage.removeItem('userInfo')
+  clearAuthSession()
 
   if (authExpiredHandling) return
 
@@ -87,6 +103,14 @@ export function handleAuthExpired() {
   setTimeout(() => {
     window.location.replace(`/#/login${redirect}`)
   }, 300)
+}
+
+export function handleForbidden(message = '游客账号仅支持文章浏览和 AI 对话') {
+  ElMessage({
+    message,
+    type: 'warning',
+    grouping: true
+  })
 }
 
 export default http
